@@ -8,8 +8,28 @@ const resolvers = {
     book: async (_, { id }) => await Book.findById(id),
     users: async () => await User.find(),
     user: async (_, { id }) => await User.findById(id),
-    borrowings: async () => await Borrowing.find().populate('user book'),
-    borrowing: async (_, { id }) => await Borrowing.findById(id).populate('user book'),
+    borrowings: async () => {
+      try {
+        const borrowings = await Borrowing.find().populate('user').populate('book');
+        console.log('Fetched borrowings:', borrowings);
+        return borrowings;
+      } catch (error) {
+        console.error('Error fetching borrowings:', error);
+        throw new Error('Failed to fetch borrowings');
+      }
+    },
+    borrowing: async (_, { id }) => {
+      try {
+        const borrowing = await Borrowing.findById(id).populate('user').populate('book');
+        if (!borrowing) {
+          throw new Error('Borrowing not found');
+        }
+        return borrowing;
+      } catch (error) {
+        console.error('Error fetching borrowing:', error);
+        throw new Error('Failed to fetch borrowing');
+      }
+    },
   },
   Mutation: {
     addBook: async (_, { title, author, year }) => await Book.create({ title, author, year }),
@@ -23,26 +43,36 @@ const resolvers = {
     deleteUser: async (_, { id }) => await User.findByIdAndDelete(id), // Perbaiki dari Book ke User
 
     addBorrowing: async (_, { userId, bookId, borrowDate, returnDate }) => {
-      const borrowing = await Borrowing.create({
-        user: userId,
-        book: bookId,
-        borrowDate: new Date(borrowDate),
-        returnDate: new Date(returnDate),
-      });
-      return await borrowing.populate('user').populate('book');
-    },
-    updateBorrowing: async (_, { id, userId, bookId, borrowDate, returnDate }) => {
-      const borrowing = await Borrowing.findByIdAndUpdate(
-        id,
-        {
+      try {
+        const borrowing = await Borrowing.create({
           user: userId,
           book: bookId,
           borrowDate: new Date(borrowDate),
           returnDate: new Date(returnDate),
-        },
-        { new: true }
-      );
-      return await borrowing.populate('user').populate('book');
+        });
+        return await Borrowing.findById(borrowing._id).populate('user').populate('book');
+      } catch (error) {
+        console.error('Error adding borrowing:', error);
+        throw new Error('Failed to add borrowing');
+      }
+    },
+    updateBorrowing: async (_, { id, userId, bookId, borrowDate, returnDate }) => {
+      try {
+        const borrowing = await Borrowing.findByIdAndUpdate(
+          id,
+          {
+            user: userId,
+            book: bookId,
+            borrowDate: new Date(borrowDate),
+            returnDate: new Date(returnDate),
+          },
+          { new: true }
+        );
+        return await Borrowing.findById(borrowing._id).populate('user').populate('book');
+      } catch (error) {
+        console.error('Error updating borrowing:', error);
+        throw new Error('Failed to update borrowing');
+      }
     },
     deleteBorrowing: async (_, { id }) => await Borrowing.findByIdAndDelete(id),
   },
